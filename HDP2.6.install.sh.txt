@@ -1,0 +1,445 @@
+
+# The Initial setup is described here: https://docs.hortonworks.com/HDPDocuments/Ambari-2.6.1.0/bk_ambari-installation/content/ch_Getting_Ready.html
+# The install procedure is described here: https://docs.hortonworks.com/HDPDocuments/HDP2/HDP-2.6.4/bk_command-line-installation/bk_command-line-installation.pdf
+
+fqdn_hostname=`hostname -f`
+
+function setup_password_less_ssh { 
+	if [ ! -f /root/.ssh/id_rsa ]; then
+		echo "Need to set ssh keys. Running ssh-keygen. Please follow the instructions"
+		ssh-keygen
+	fi
+
+	cd /root/.ssh
+	cat id_rsa.pub >> authorized_keys
+	chmod 700 ~/.ssh
+	chmod 600 ~/.ssh/authorized_keys
+	
+	echo "Testing that setup password-less ssh done correctly"
+	echo "please reply 'yes' if asked: Are you sure you want to continue connecting (yes/no)? "
+	echo "If you are asked to enter a password, it means that something went wrong while setting up. Please resolve manually."
+	reply=`ssh $fqdn_hostname date`
+
+}
+
+function prepare_the_environment {
+	
+	yum install -y ntp
+	systemctl enable ntpd
+	systemctl start ntpd	
+	
+	systemctl disable firewalld
+	service firewalld stop
+	
+	setenforce 0
+	
+	umask 0022
+	
+}
+
+
+function ambari_install {
+	echo "INFO: ambari_install: "
+	echo "This section downloads the required packages to run ambari-server."
+	
+	wget -nv http://public-repo-1.hortonworks.com/ambari/centos7/2.x/updates/2.6.1.0/ambari.repo -O /etc/yum.repos.d/ambari.repo
+	yum repolist
+	
+	yum install -y ambari-server 
+	
+}
+
+function ambari_config_start {
+	echo "INFO: ambari_config_start:"
+	echo "Please accept all defaults proposed while in the following steps configuring the server. "
+	echo "If required, Detailed explanation and instructions for configuring ambari-server at:" 
+	echo "https://docs.hortonworks.com/HDPDocuments/Ambari-2.6.1.0/bk_ambari-installation/content/set_up_the_ambari_server.html "
+	
+	ambari-server setup
+	ambari-server start
+} 
+
+function users_and_groups() { 
+	# Comments: 
+	#	1. users created below with hardcoded values - TODO use the variables properly - low priority 
+	#	2. missing users from this procedure: pig
+	#	3. Seems that there are some users that are not really needed for the purpose of this one node cluster. TODO: review again - low priority
+
+	# User which will own the HDFS services.
+	HDFS_USER=hdfs ;
+
+	# User which will own the YARN services.
+	YARN_USER=yarn ;
+
+	# User which will own the MapReduce services.
+	MAPRED_USER=mapred ;
+
+	# User which will own the Pig services.
+	PIG_USER=pig ;
+
+	# User which will own the Hive services.
+	HIVE_USER=hive ;
+
+	# User which will own the Templeton services.
+	WEBHCAT_USER=hcat ;
+
+	# User which will own the HBase services.
+	HBASE_USER=hbase ;
+
+	# User which will own the ZooKeeper services.
+	ZOOKEEPER_USER=zookeeper ;
+
+	# User which will own the Oozie services.
+	OOZIE_USER=oozie
+
+
+	# A common group shared by services.
+	HADOOP_GROUP=hadoop ;
+
+
+	# Create the required groups 
+
+	groupadd  $HADOOP_GROUP
+	groupadd  mapred
+	groupadd  nagios
+	useradd -G hadoop			hdfs
+	useradd -G hadoop			yarn
+	# The install doc  lists mapred differently.  
+	# TODO: review in low priority - the way written in the install doc does not work properly. this fix seems to work fine.
+
+	useradd -G hadoop 			mapred
+	useradd -G hadoop			hive
+	useradd -G hadoop			hcat
+	useradd -G hadoop			hbase
+	useradd -G hadoop			falcon
+	useradd -G hadoop			sqoop
+	useradd -G hadoop			zookeeper
+	useradd -G hadoop			oozie
+	useradd -G hadoop			knox
+	useradd -G nagios			nagios
+}
+
+	
+
+# Not sure what is the diff between the two instructions set. Need to review once again. 
+
+# https://docs.hortonworks.com/HDPDocuments/HDP2/HDP-2.6.4/bk_command-line-installation/content/ch_getting_ready_chapter.html
+# https://cwiki.apache.org/confluence/display/AMBARI/Installation+Guide+for+Ambari+2.6.1
+
+function set_environment() {
+	# This section is based on the guidelines at: https://docs.hortonworks.com/HDPDocuments/HDP2/HDP-2.6.4/bk_command-line-installation/content/def-environment-parameters.html
+
+	# Directories Script
+	#
+	# 1. To use this script, you must edit the TODO variables below for your environment.
+	#
+	# 2. Warning: Leave the other parameters as the default values. Changing these default values will require you to
+	#    change values in other configuration files.
+	#
+
+	#
+	# Hadoop Service - HDFS
+	#
+
+	# Space separated list of directories where NameNode will store file system image. For example, /grid/hadoop/hdfs/nn /grid1/hadoop/hdfs/nn
+	DFS_NAME_DIR="/hadoop/hdfs/namenode";
+
+	# Space separated list of directories where DataNodes will store the blocks. For example, /grid/hadoop/hdfs/dn /grid1/hadoop/hdfs/dn /grid2/hadoop/hdfs/dn
+	DFS_DATA_DIR="/hadoop/hdfs/data";
+
+	# Space separated list of directories where SecondaryNameNode will store checkpoint image. For example, /grid/hadoop/hdfs/snn /grid1/hadoop/hdfs/snn /grid2/hadoop/hdfs/snn
+	FS_CHECKPOINT_DIR="/hadoop/hdfs/namesecondary";
+
+	# Directory to store the HDFS logs.
+	HDFS_LOG_DIR="/var/log/hadoop/hdfs";
+
+	# Directory to store the HDFS process ID.
+	HDFS_PID_DIR="/var/run/hadoop/hdfs";
+
+	# Directory to store the Hadoop configuration files.
+	HADOOP_CONF_DIR="/etc/hadoop/conf";
+
+	#
+	# Hadoop Service - YARN 
+	#
+
+	# Space separated list of directories where YARN will store temporary data. For example, /grid/hadoop/yarn/local /grid1/hadoop/yarn/local /grid2/hadoop/yarn/local
+	YARN_LOCAL_DIR="/hadoop/yarn/local";
+
+	# Directory to store the YARN logs.
+	YARN_LOG_DIR="/var/log/hadoop/yarn"; 
+
+	# Space separated list of directories where YARN will store container log data. For example, /grid/hadoop/yarn/logs /grid1/hadoop/yarn/logs /grid2/hadoop/yarn/logs
+	YARN_LOCAL_LOG_DIR="/hadoop/yarn/log";
+
+	# Directory to store the YARN process ID.
+	YARN_PID_DIR="/var/run/hadoop/yarn";
+
+	#
+	# Hadoop Service - MAPREDUCE
+	#
+
+	# Directory to store the MapReduce daemon logs.
+	MAPRED_LOG_DIR="/var/log/hadoop/mapred";
+
+	# Directory to store the mapreduce jobhistory process ID.
+	MAPRED_PID_DIR="/var/run/hadoop/mapred";
+
+	#
+	# Hadoop Service - Hive
+	#
+
+	# Directory to store the Hive configuration files.
+	HIVE_CONF_DIR="/etc/hive/conf";
+
+	# Directory to store the Hive logs.
+	HIVE_LOG_DIR="/var/log/hive";
+
+	# Directory to store the Hive process ID.
+	HIVE_PID_DIR="/var/run/hive";
+
+	#
+	# Hadoop Service - WebHCat (Templeton)
+	#
+
+	# Directory to store the WebHCat (Templeton) configuration files.
+	WEBHCAT_CONF_DIR="/etc/hcatalog/conf/webhcat";
+
+	# Directory to store the WebHCat (Templeton) logs.
+	WEBHCAT_LOG_DIR="var/log/webhcat";
+
+	# Directory to store the WebHCat (Templeton) process ID.
+	WEBHCAT_PID_DIR="/var/run/webhcat";
+
+	#
+	# Hadoop Service - HBase
+	#
+
+	# Directory to store the HBase configuration files.
+	HBASE_CONF_DIR="/etc/hbase/conf";
+
+	# Directory to store the HBase logs.
+	HBASE_LOG_DIR="/var/log/hbase";
+
+	# Directory to store the HBase logs.
+	HBASE_PID_DIR="/var/run/hbase";
+
+	#
+	# Hadoop Service - ZooKeeper
+	#
+
+	# Directory where ZooKeeper will store data. For example, /grid1/hadoop/zookeeper/data
+	ZOOKEEPER_DATA_DIR="/hadoop/zookeeper";
+
+	# Directory to store the ZooKeeper configuration files.
+	ZOOKEEPER_CONF_DIR="/etc/zookeeper/conf";
+
+	# Directory to store the ZooKeeper logs.
+	ZOOKEEPER_LOG_DIR="/var/log/zookeeper";
+
+	# Directory to store the ZooKeeper process ID.
+	ZOOKEEPER_PID_DIR="/var/run/zookeeper";
+
+	#
+	# Hadoop Service - Pig
+	#
+
+	# Directory to store the Pig configuration files.
+	PIG_CONF_DIR="/etc/pig/conf";
+
+	# Directory to store the Pig logs.
+	PIG_LOG_DIR="/var/log/pig";
+
+	# Directory to store the Pig process ID.
+	PIG_PID_DIR="/var/run/pig";
+
+
+	#
+	# Hadoop Service - Oozie
+	#
+
+	# Directory to store the Oozie configuration files.
+	OOZIE_CONF_DIR="/etc/oozie/conf"
+
+	# Directory to store the Oozie data.
+	OOZIE_DATA="/var/db/oozie"
+
+	# Directory to store the Oozie logs.
+	OOZIE_LOG_DIR="/var/log/oozie"
+
+	# Directory to store the Oozie process ID.
+	OOZIE_PID_DIR="/var/run/oozie"
+
+	# Directory to store the Oozie temporary files.
+	OOZIE_TMP_DIR="/var/tmp/oozie"
+
+	#
+	# Hadoop Service - Sqoop
+	#
+	SQOOP_CONF_DIR="/etc/sqoop/conf"
+
+	export HADOOP_LIBEXEC_DIR=/usr/lib/hadoop/libexec
+	
+	
+}
+
+
+
+function install_haddop_core {
+	umask 0022
+	wget -nv http://public-repo-1.hortonworks.com/HDP/centos7/2.x/updates/2.6.3.0/hdp.repo -O /etc/yum.repos.d/hdp.repo
+	yum repolist
+	
+	yum install -y hadoop hadoop-hdfs hadoop-libhdfs hadoop-yarn hadoop-mapreduce hadoop-client openssl
+	yum install -y snappy snappy-devel
+	yum install -y lzo lzo-devel hadooplzo hadooplzo-native
+	
+	# Create the NameNode Directories
+	mkdir -p $DFS_NAME_DIR;
+	chown -R $HDFS_USER:$HADOOP_GROUP $DFS_NAME_DIR;
+	chmod -R 755 $DFS_NAME_DIR;
+	
+
+	# Create the SecondaryNameNode Directories 
+	# TODO: Not sure this is required - low priority
+
+	mkdir -p $FS_CHECKPOINT_DIR;
+	chown -R $HDFS_USER:$HADOOP_GROUP $FS_CHECKPOINT_DIR; 
+	chmod -R 755 $FS_CHECKPOINT_DIR;	
+
+	# Create DataNode and YARN NodeManager Local Directories
+	mkdir -p $DFS_DATA_DIR;
+	chown -R $HDFS_USER:$HADOOP_GROUP $DFS_DATA_DIR;
+	chmod -R 750 $DFS_DATA_DIR;
+
+	mkdir -p $YARN_LOCAL_DIR;
+	chown -R $YARN_USER:$HADOOP_GROUP $YARN_LOCAL_DIR;
+	chmod -R 755 $YARN_LOCAL_DIR;
+
+	mkdir -p $YARN_LOCAL_LOG_DIR;
+	chown -R $YARN_USER:$HADOOP_GROUP $YARN_LOCAL_LOG_DIR; 
+	chmod -R 755 $YARN_LOCAL_LOG_DIR;
+
+	# Create the Log and PID Directories
+	mkdir -p $HDFS_LOG_DIR;
+	chown -R $HDFS_USER:$HADOOP_GROUP $HDFS_LOG_DIR;
+	chmod -R 755 $HDFS_LOG_DIR;
+
+	mkdir -p $YARN_LOG_DIR; 
+	chown -R $YARN_USER:$HADOOP_GROUP $YARN_LOG_DIR;
+	chmod -R 755 $YARN_LOG_DIR;
+
+	mkdir -p $HDFS_PID_DIR;
+	chown -R $HDFS_USER:$HADOOP_GROUP $HDFS_PID_DIR;
+	chmod -R 755 $HDFS_PID_DIR;
+
+	mkdir -p $YARN_PID_DIR;
+	chown -R $YARN_USER:$HADOOP_GROUP $YARN_PID_DIR;
+	chmod -R 755 $YARN_PID_DIR;
+
+	mkdir -p $MAPRED_LOG_DIR;
+	chown -R $MAPRED_USER:$HADOOP_GROUP $MAPRED_LOG_DIR;
+	chmod -R 755 $MAPRED_LOG_DIR;
+
+	mkdir -p $MAPRED_PID_DIR;
+	chown -R $MAPRED_USER:$HADOOP_GROUP $MAPRED_PID_DIR;
+	chmod -R 755 $MAPRED_PID_DIR;
+
+
+	#TODO: Pg 46:  using hdp-select failed. think that is not important in this context. 
+	
+}
+
+
+
+function setup_hadoop_config {
+
+# TODO: I assume here that I already have the "Companion Files" downloaded to /tmp/
+#       Need to add this function at some earlier step 
+#       This may eliminate the need to have in this scrip a long list of variables. 
+#       instead, I can "source" the standard and modify those variables that are required.
+#		
+# 		cd /tmp
+#		wget http://public-repo-1.hortonworks.com/HDP/tools/2.6.0.3/hdp_manual_install_rpm_helper_files-2.6.0.3.8.tar.gz
+#		tar zxvf hdp_manual_install_rpm_helper_files-2.6.0.3.8.tar.gz
+
+	# TODO: Should keep the backup as "template", and rename the original with suffix  "orig"
+
+	# TODO: Not sure that I'm handling SECONDARY correct. Need to review again. 
+	# TODO: Test that nothing is left as "TODO". 
+	
+	cd /tmp/hdp_manual_install_rpm_helper_files-2.6.0.3.8/configuration_files/core_hadoop
+	
+	sed core-site.xml -i.ORIG -e s/TODO-NAMENODE-HOSTNAME:PORT/${fqdn_hostname}:8020/ 
+	 
+	### YF Stopped here: 20180116 - Page 48 of: https://docs.hortonworks.com/HDPDocuments/HDP2/HDP-2.6.4/bk_command-line-installation/bk_command-line-installation.pdf 
+	### IMPORTANT: Need to review the one below once again. Most likely I didn't place "file:///" correctly. 
+
+	 
+	sed hdfs-site.xml -i.ORIG 	-e "s/TODO-DFS-DATA-DIR/file:\/\/\/${DFS_DATA_DIR}/		            
+									s/TODO-NAMENODE-HOSTNAME:50070/${fqdn_hostname}:50070/  
+									s/TODO-DFS-NAME-DIR/${DFS_NAME_DIR}/					
+									s/TODO-FS-CHECKPOINT-DIR/${FS_CHECKPOINT_DIR}/           
+									s/TODO-SECONDARYNAMENODE-HOSTNAME:50090/TODO-SECONDARYNAMENODE-HOSTNAME:50090/ "                
+
+
+
+
+}
+
+
+
+
+  
+
+####### MY SCARATCH AREA ##############################	
+
+
+
+ulimit -Sn
+ulimit -Hn
+
+# If the output is not greater than 10000, run the following command to set it to a suitable default:
+
+ulimit -n 10000
+
+hostname -f
+
+# NTP: Sec 4.3 # https://docs.hortonworks.com/HDPDocuments/Ambari-2.2.1.0/bk_Installing_HDP_AMB/content/_enable_ntp_on_the_cluster_and_on_the_browser_host.html
+
+systemctl is-enabled ntpd
+systemctl enable ntpd
+systemctl start ntpd
+
+# set hostname to FQDN:  
+#		hostname `hostname -f`
+
+# Firewall - BE SURE TO PERFORM EVERY TIME AFTER REBOOT
+
+systemctl disable firewalld
+service firewalld stop
+
+setenforce 0
+
+####################
+
+wget -nv http://public-repo-1.hortonworks.com/ambari/centos7/2.x/updates/2.2.1.0/ambari.repo -O /etc/yum.repos.d/ambari.repo
+yum repolist
+yum install ambari-server
+
+
+ambari-server setup
+
+
+ambari-server start
+
+#To check the Ambari Server processes:
+ambari-server status
+
+#To stop the Ambari Server:
+#ambari-server stop
+
+echo "copy the URL below to your browser: "
+echo "http://`hostname`:8080"
+
+
