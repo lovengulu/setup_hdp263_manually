@@ -63,6 +63,9 @@ function fetch_hdp_manual_install_rpm_helper_files {
 	cd /tmp
 	wget http://public-repo-1.hortonworks.com/HDP/tools/2.6.0.3/hdp_manual_install_rpm_helper_files-2.6.0.3.8.tar.gz
 	tar zxvf hdp_manual_install_rpm_helper_files-2.6.0.3.8.tar.gz
+	
+	PATH_HDP_MANUAL_INSTALL_RPM_HELPER_FILES=/tmp/hdp_manual_install_rpm_helper_files-2.6.0.3.8
+	
 }
 
 
@@ -72,61 +75,34 @@ function users_and_groups() {
 	#	2. missing users from this procedure: pig
 	#	3. Seems that there are some users that are not really needed for the purpose of this one node cluster. TODO: review again - low priority
 
-	# User which will own the HDFS services.
-	HDFS_USER=hdfs ;
-
-	# User which will own the YARN services.
-	YARN_USER=yarn ;
-
-	# User which will own the MapReduce services.
-	MAPRED_USER=mapred ;
-
-	# User which will own the Pig services.
-	PIG_USER=pig ;
-
-	# User which will own the Hive services.
-	HIVE_USER=hive ;
-
-	# User which will own the Templeton services.
-	WEBHCAT_USER=hcat ;
-
-	# User which will own the HBase services.
-	HBASE_USER=hbase ;
-
-	# User which will own the ZooKeeper services.
-	ZOOKEEPER_USER=zookeeper ;
-
-	# User which will own the Oozie services.
-	OOZIE_USER=oozie
-
-
-	# A common group shared by services.
-	HADOOP_GROUP=hadoop ;
-
-
+	cd $PATH_HDP_MANUAL_INSTALL_RPM_HELPER_FILES
+	
+	.  scripts/usersAndGroups.sh
+	
 	# Create the required groups 
 
 	groupadd  $HADOOP_GROUP
 	groupadd  mapred
 	groupadd  nagios
-	useradd -G hadoop			hdfs
-	useradd -G hadoop			yarn
+
+	useradd -G $HADOOP_GROUP			$HDFS_USER
+	useradd -G $HADOOP_GROUP			$YARN_USER
+
 	# The install doc  lists mapred differently.  
 	# TODO: review in low priority - the way written in the install doc does not work properly. this fix seems to work fine.
-
-	useradd -G hadoop 			mapred
-	useradd -G hadoop			hive
-	useradd -G hadoop			hcat
-	useradd -G hadoop			hbase
-	useradd -G hadoop			falcon
-	useradd -G hadoop			sqoop
-	useradd -G hadoop			zookeeper
-	useradd -G hadoop			oozie
-	useradd -G hadoop			knox
+	useradd -G $HADOOP_GROUP 			$MAPRED_USER
+	useradd -G $HADOOP_GROUP			$HIVE_USER
+	useradd -G $HADOOP_GROUP			$WEBHCAT_USER
+	useradd -G $HADOOP_GROUP			$HBASE_USER
+	# TODO: Need to find out if I need the following users that created without using variable  
+	useradd -G $HADOOP_GROUP			falcon
+	useradd -G $HADOOP_GROUP			sqoop
+	useradd -G $HADOOP_GROUP			$ZOOKEEPER_USER
+	useradd -G $HADOOP_GROUP			$OOZIE_USER
+	useradd -G $HADOOP_GROUP			knox
 	useradd -G nagios			nagios
 }
 
-	
 
 # Not sure what is the diff between the two instructions set. Need to review once again. 
 
@@ -134,165 +110,27 @@ function users_and_groups() {
 # https://cwiki.apache.org/confluence/display/AMBARI/Installation+Guide+for+Ambari+2.6.1
 
 function set_environment() {
-	# This section is based on the guidelines at: https://docs.hortonworks.com/HDPDocuments/HDP2/HDP-2.6.4/bk_command-line-installation/content/def-environment-parameters.html
+	# This page describes the environment variables that need to be set: 
+	# https://docs.hortonworks.com/HDPDocuments/HDP2/HDP-2.6.4/bk_command-line-installation/content/def-environment-parameters.html
 
-	# Directories Script
-	#
-	# 1. To use this script, you must edit the TODO variables below for your environment.
-	#
-	# 2. Warning: Leave the other parameters as the default values. Changing these default values will require you to
-	#    change values in other configuration files.
-	#
-
-	#
-	# Hadoop Service - HDFS
-	#
-
-	# Space separated list of directories where NameNode will store file system image. For example, /grid/hadoop/hdfs/nn /grid1/hadoop/hdfs/nn
-	DFS_NAME_DIR="/hadoop/hdfs/namenode";
-
-	# Space separated list of directories where DataNodes will store the blocks. For example, /grid/hadoop/hdfs/dn /grid1/hadoop/hdfs/dn /grid2/hadoop/hdfs/dn
-	DFS_DATA_DIR="/hadoop/hdfs/data";
-
-	# Space separated list of directories where SecondaryNameNode will store checkpoint image. For example, /grid/hadoop/hdfs/snn /grid1/hadoop/hdfs/snn /grid2/hadoop/hdfs/snn
-	FS_CHECKPOINT_DIR="/hadoop/hdfs/namesecondary";
-
-	# Directory to store the HDFS logs.
-	HDFS_LOG_DIR="/var/log/hadoop/hdfs";
-
-	# Directory to store the HDFS process ID.
-	HDFS_PID_DIR="/var/run/hadoop/hdfs";
-
-	# Directory to store the Hadoop configuration files.
-	HADOOP_CONF_DIR="/etc/hadoop/conf";
-
-	#
-	# Hadoop Service - YARN 
-	#
-
-	# Space separated list of directories where YARN will store temporary data. For example, /grid/hadoop/yarn/local /grid1/hadoop/yarn/local /grid2/hadoop/yarn/local
-	YARN_LOCAL_DIR="/hadoop/yarn/local";
-
-	# Directory to store the YARN logs.
-	YARN_LOG_DIR="/var/log/hadoop/yarn"; 
-
-	# Space separated list of directories where YARN will store container log data. For example, /grid/hadoop/yarn/logs /grid1/hadoop/yarn/logs /grid2/hadoop/yarn/logs
-	YARN_LOCAL_LOG_DIR="/hadoop/yarn/log";
-
-	# Directory to store the YARN process ID.
-	YARN_PID_DIR="/var/run/hadoop/yarn";
-
-	#
-	# Hadoop Service - MAPREDUCE
-	#
-
-	# Directory to store the MapReduce daemon logs.
-	MAPRED_LOG_DIR="/var/log/hadoop/mapred";
-
-	# Directory to store the mapreduce jobhistory process ID.
-	MAPRED_PID_DIR="/var/run/hadoop/mapred";
-
-	#
-	# Hadoop Service - Hive
-	#
-
-	# Directory to store the Hive configuration files.
-	HIVE_CONF_DIR="/etc/hive/conf";
-
-	# Directory to store the Hive logs.
-	HIVE_LOG_DIR="/var/log/hive";
-
-	# Directory to store the Hive process ID.
-	HIVE_PID_DIR="/var/run/hive";
-
-	#
-	# Hadoop Service - WebHCat (Templeton)
-	#
-
-	# Directory to store the WebHCat (Templeton) configuration files.
-	WEBHCAT_CONF_DIR="/etc/hcatalog/conf/webhcat";
-
-	# Directory to store the WebHCat (Templeton) logs.
-	WEBHCAT_LOG_DIR="var/log/webhcat";
-
-	# Directory to store the WebHCat (Templeton) process ID.
-	WEBHCAT_PID_DIR="/var/run/webhcat";
-
-	#
-	# Hadoop Service - HBase
-	#
-
-	# Directory to store the HBase configuration files.
-	HBASE_CONF_DIR="/etc/hbase/conf";
-
-	# Directory to store the HBase logs.
-	HBASE_LOG_DIR="/var/log/hbase";
-
-	# Directory to store the HBase logs.
-	HBASE_PID_DIR="/var/run/hbase";
-
-	#
-	# Hadoop Service - ZooKeeper
-	#
-
-	# Directory where ZooKeeper will store data. For example, /grid1/hadoop/zookeeper/data
-	ZOOKEEPER_DATA_DIR="/hadoop/zookeeper";
-
-	# Directory to store the ZooKeeper configuration files.
-	ZOOKEEPER_CONF_DIR="/etc/zookeeper/conf";
-
-	# Directory to store the ZooKeeper logs.
-	ZOOKEEPER_LOG_DIR="/var/log/zookeeper";
-
-	# Directory to store the ZooKeeper process ID.
-	ZOOKEEPER_PID_DIR="/var/run/zookeeper";
-
-	#
-	# Hadoop Service - Pig
-	#
-
-	# Directory to store the Pig configuration files.
-	PIG_CONF_DIR="/etc/pig/conf";
-
-	# Directory to store the Pig logs.
-	PIG_LOG_DIR="/var/log/pig";
-
-	# Directory to store the Pig process ID.
-	PIG_PID_DIR="/var/run/pig";
-
-
-	#
-	# Hadoop Service - Oozie
-	#
-
-	# Directory to store the Oozie configuration files.
-	OOZIE_CONF_DIR="/etc/oozie/conf"
-
-	# Directory to store the Oozie data.
-	OOZIE_DATA="/var/db/oozie"
-
-	# Directory to store the Oozie logs.
-	OOZIE_LOG_DIR="/var/log/oozie"
-
-	# Directory to store the Oozie process ID.
-	OOZIE_PID_DIR="/var/run/oozie"
-
-	# Directory to store the Oozie temporary files.
-	OOZIE_TMP_DIR="/var/tmp/oozie"
-
-	#
-	# Hadoop Service - Sqoop
-	#
-	SQOOP_CONF_DIR="/etc/sqoop/conf"
-
-	export HADOOP_LIBEXEC_DIR=/usr/lib/hadoop/libexec
+	cd $PATH_HDP_MANUAL_INSTALL_RPM_HELPER_FILES/scripts
 	
+	
+	sed directories.sh -i.ORIG 	-e "s/TODO-LIST-OF-NAMENODE-DIRS/\/hadoop\/hdfs\/namenode/
+									s/TODO-LIST-OF-DATA-DIRS/\/hadoop\/hdfs\/data/
+									s/TODO-LIST-OF-SECONDARY-NAMENODE-DIRS/\/hadoop\/hdfs\/namesecondary/
+									s/TODO-LIST-OF-YARN-LOCAL-DIRS/\/hadoop\/yarn\/local/	
+									s/TODO-LIST-OF-YARN-LOCAL-LOG-DIRS/\/hadoop\/yarn\/log/
+									s/TODO-ZOOKEEPER-DATA-DIR/\/hadoop\/zookeeper/   "
+
+	. directories.sh
 	
 }
 
 
 
 function install_haddop_core {
+	cd
 	umask 0022
 	wget -nv http://public-repo-1.hortonworks.com/HDP/centos7/2.x/updates/2.6.3.0/hdp.repo -O /etc/yum.repos.d/hdp.repo
 	yum repolist
@@ -360,36 +198,75 @@ function install_haddop_core {
 
 
 function setup_hadoop_config {
+	# This function revises the config template files. The original template file is saved with the suffix ".ORIG_HELPER".
+	# The changes are according to Section 4 of the manual (Setting Up the Hadoop Configuration, pp. 48 - 53)
 
-# TODO: I assume here that I already have the "Companion Files" downloaded to /tmp/
-#       Need to add this function at some earlier step 
-#       This may eliminate the need to have in this scrip a long list of variables. 
-#       instead, I can "source" the standard and modify those variables that are required.
-#		
-# 		cd /tmp
-#		wget http://public-repo-1.hortonworks.com/HDP/tools/2.6.0.3/hdp_manual_install_rpm_helper_files-2.6.0.3.8.tar.gz
-#		tar zxvf hdp_manual_install_rpm_helper_files-2.6.0.3.8.tar.gz
-
-	# TODO: Should keep the backup as "template", and rename the original with suffix  "orig"
-
-	# TODO: Not sure that I'm handling SECONDARY correct. Need to review again. 
 	# TODO: Test that nothing is left as "TODO". 
 	
-	cd /tmp/hdp_manual_install_rpm_helper_files-2.6.0.3.8/configuration_files/core_hadoop
+	
+	cd $PATH_HDP_MANUAL_INSTALL_RPM_HELPER_FILES/configuration_files/core_hadoop
 	
 	sed core-site.xml -i.ORIG -e s/TODO-NAMENODE-HOSTNAME:PORT/${fqdn_hostname}:8020/ 
 	 
-	### YF Stopped here: 20180116 - Page 48 of: https://docs.hortonworks.com/HDPDocuments/HDP2/HDP-2.6.4/bk_command-line-installation/bk_command-line-installation.pdf 
-	### IMPORTANT: Need to review the one below once again. Most likely I didn't place "file:///" correctly. 
-
-	 
-	sed hdfs-site.xml -i.ORIG 	-e "s/TODO-DFS-DATA-DIR/file:\/\/\/${DFS_DATA_DIR}/		            
+	# Secondary Namenode is NOT a backup. The following blog describes its function: http://blog.madhukaraphatak.com/secondary-namenode---what-it-really-do/ 
+	sed hdfs-site.xml -i.ORIG_HELPER 	-e "s/TODO-DFS-DATA-DIR/file:\/\/\/${DFS_DATA_DIR}/		            
 									s/TODO-NAMENODE-HOSTNAME:50070/${fqdn_hostname}:50070/  
 									s/TODO-DFS-NAME-DIR/${DFS_NAME_DIR}/					
 									s/TODO-FS-CHECKPOINT-DIR/${FS_CHECKPOINT_DIR}/           
-									s/TODO-SECONDARYNAMENODE-HOSTNAME:50090/TODO-SECONDARYNAMENODE-HOSTNAME:50090/ "                
+									s/TODO-SECONDARYNAMENODE-HOSTNAME:50090/${fqdn_hostname}:50090/ "                
 
 
+
+	sed yarn-site.xml -i.ORIG_HELPER -e "s/TODO-YARN-LOCAL-DIR/$YARN_LOCAL_DIR/
+	                              s/TODO-RMNODE-HOSTNAME:19888/${fqdn_hostname}:19888/
+	                              s/TODO-RMNODE-HOSTNAME:8141/${fqdn_hostname}:8141/	
+	                              s/TODO-YARN-LOCAL-LOG-DIR/$YARN_LOCAL_LOG_DIR/										
+	                              s/TODO-RMNODE-HOSTNAME:8025/${fqdn_hostname}:8025/	
+	                              s/TODO-RMNODE-HOSTNAME:8088/${fqdn_hostname}:8088/										
+	                              s/TODO-RMNODE-HOSTNAME:8050/${fqdn_hostname}:8050/	
+	                              s/TODO-RMNODE-HOSTNAME:8030/${fqdn_hostname}:8030/ "
+							
+	# TODO: Don't know what to do with this comment (Page 49):
+	# The maximum value of the NameNode new generation size (- XX:MaxnewSize ) should be 1/8 of the maximum heap size (-Xmx). 
+	# Ensure that you check the default setting for your environment.
+
+
+	sed mapred-site.xml -i.ORIG_HELPER -e "s/TODO-JOBHISTORYNODE-HOSTNAME:10020/${fqdn_hostname}:10020/
+	                                s/TODO-JOBHISTORYNODE-HOSTNAME:19888/${fqdn_hostname}:19888/	"
+
+
+	touch $HADOOP_CONF_DIR/dfs.exclude
+	JAVA_HOME=/usr/java/default
+	
+	echo "### Settings for Haddop " >> /etc/profile
+	echo "export JAVA_HOME=/usr/java/default"  >> /etc/profile
+	echo "export HADOOP_CONF_DIR=\$HADOOP_CONF_DIR" 	>> /etc/profile
+	echo "export PATH=\$PATH:\$JAVA_HOME:\$HADOOP_CONF_DIR	" 	>> /etc/profile
+	echo "###" 	>> /etc/profile
+	
+	# skipped optional step: Optional: Configure MapReduce to use Snappy Compression. (pg 51)
+	# Skipped optional step: Optional: If you are using the LinuxContainerExecutor ... 
+	
+	# The instructions propose to wipe out $HADOOP_CONF_DIR and create it again using the "helper files" from above. 
+	# Seems better to retain the original as it includes the tags descriptions in addition to the value. 
+
+	cd $PATH_HDP_MANUAL_INSTALL_RPM_HELPER_FILES/configuration_files/core_hadoop/
+	
+	files_to_copy=$(ls *.ORIG_HELPER)
+	for file in $files_to_copy
+	do
+	   file_no_suffix=${file%".ORIG_HELPER"}
+	   cmd="cp -p $file_no_suffix $HADOOP_CONF_DIR"
+	   echo "$cmd "
+	   eval $cmd
+	done
+	
+	cp -p *.ORIG_HELPER $HADOOP_CONF_DIR
+	
+	### YF: To continue HERE - pg 52. bullet 7
+	
+			
+### YF Stopped here: 20180117 - Page 52 of: https://docs.hortonworks.com/HDPDocuments/HDP2/HDP-2.6.4/bk_command-line-installation/bk_command-line-installation.pdf 									
 
 
 }
