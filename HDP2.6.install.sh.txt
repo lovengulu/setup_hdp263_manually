@@ -59,6 +59,13 @@ function ambari_config_start {
 	ambari-server start
 } 
 
+function fetch_hdp_manual_install_rpm_helper_files {
+	cd /tmp
+	wget http://public-repo-1.hortonworks.com/HDP/tools/2.6.0.3/hdp_manual_install_rpm_helper_files-2.6.0.3.8.tar.gz
+	tar zxvf hdp_manual_install_rpm_helper_files-2.6.0.3.8.tar.gz
+}
+
+
 function users_and_groups() { 
 	# Comments: 
 	#	1. users created below with hardcoded values - TODO use the variables properly - low priority 
